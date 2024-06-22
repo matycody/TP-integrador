@@ -68,6 +68,18 @@ Ahora pondremos un ejemplo con la extensión Thunder client(tambien se puede uti
 - basic_auth_users.py
 - jwt_auth_users.py
 
+--- 
+Cada archivo .py mencionado anteriormente debe estar conectado al fichero main.py con ApiRouter, que es una clase de FastAPI que permite agrupar rutas y organizarlas mejor.
+
+```
+from fastapi import ApiRouter
+
+router = ApiRouter()
+
+```
+Creamos la instacia ApiRouter, sera el principal punto de interacción para crear y vincular todos los ficheros.
+#
+
 ### Dentro de nuestra carpeta "db", crearemos 2 carpetas y un archivo .py llamados:
 * models
 * client
@@ -135,6 +147,16 @@ users_list= []
 async def users():
     return users_list
 
+# Obtener Usuario por ID (Path Parameter) <- 4
+@router.get("/user/{id}") 
+async def user(id: int):
+    return search_user(id)
+
+# Obtener Usuario por ID (Query Parameter) <- 5
+@router.get("/user/")  
+async def user(id: int):
+    return search_user(id)
+
 ... 
 ```
 
@@ -144,6 +166,14 @@ async def users():
 Optional es una clase dentro de la biblioteca typing que indica que un valor puede ser del tipo especificado o None.
 
 * 3 - es una clase que se utiliza para generar errores HTTP personalizados y devolver respuestas de error específicas al cliente. Esta excepción se lanza para indicar que algo salió mal en el procesamiento de una solicitud y permite especificar el código de estado HTTP y un mensaje de detalle.
+
+-- -- -- 
+
+Diferencia entre PATH y QUERY:
+
+* 4 - Obtiene un usuario específico basado en el id pasado como parámetro en la URL.(Path)
+
+* 5 - Obtiene un usuario específico basado en el id pasado como parámetro de consulta (Query ).
 
 Por ultimo, Activamos el servidor uvicorn
 

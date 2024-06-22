@@ -1,109 +1,134 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import jwt, JWTError#1
-from passlib.context import CryptContext#2 ->
-from datetime import datetime, timedelta#3
-2#
-router = APIRouter()
-#11
-ALGORITHM = "HS256"
-ACCESS_TOKEN_DURATION = 1 #7
-SECRET = "201d573bd7d1344d3a3bfce1550b69102fd11be3db6d379508b6cccc58ea230b" 
+from jose import jwt, JWTError #1
+from passlib.context import CryptContext #2
+from datetime import datetime, timedelta #3
 
-4#
+router = APIRouter()
+
+
+ALGORITHM = "HS256" # Define el algoritmo de codificación JWT.
+ACCESS_TOKEN_DURATION = 1 # Define la duración del token de acceso en minutos.
+SECRET = "201d573bd7d1344d3a3bfce1550b69102fd11be3db6d379508b6cccc58ea230b" # Define la clave secreta utilizada para codificar y decodificar JWTs.
+
+#4
 oauth2 = OAuth2PasswordBearer(tokenUrl="login")
 
-crypt = CryptContext(schemes=["bcrypt"]) #11 contexto de importacion ->
-3#
+#5
+crypt = CryptContext(schemes=["bcrypt"]) 
+
+#Modelos de Datos
 class User(BaseModel):
     username: str
     email: str
     disabled: bool
-
-
+    
 class UserDB(User):
     password: str
 
 
-5#
+# Base de Datos Simulada de Usuarios
 users_db = {
     "matias": {
         "username": "matias",
         "email": "matiassosa@gmail.com",
         "disabled": False,
-        "password": "$2a$12$B2Gq.Dps1WYf2t57eiIKjO4DXC3IUMUXISJF62bSRiFfqMdOI2Xa6" #openssl para encriptar la contraseña
+        "password": "$2a$12$B2Gq.Dps1WYf2t57eiIKjO4DXC3IUMUXISJF62bSRiFfqMdOI2Xa6" #123456
     },
     "nahuel": {
         "username": "nahuel",
         "email": "nahuelparadiso@gmail.com",
         "disabled": False,
-        "password": "$2a$12$LQa/B8gDx0gIch2tCfatqOnPDxZpMZgpnkypF1ZAfsu5poQHWkprC" #nahuel12 openssl para encriptar la contraseña
+        "password": "$2a$12$LQa/B8gDx0gIch2tCfatqOnPDxZpMZgpnkypF1ZAfsu5poQHWkprC" #nahuel12 
     }
 }
-# 6
-def search_user_db(username: str): 
+
+# Funciones para Buscar Usuarios
+
+def search_user_db(username: str): #6
     if username in users_db:
         return UserDB(**users_db[username])
 
 
-def search_user(username: str):
+def search_user(username: str): #7
     if username in users_db:
         return User(**users_db[username])
     
-#10
-async def auth_user(token: str = Depends(oauth2)):
-
-    exception = HTTPException(
+#Función para Autenticar el Usuario
+async def auth_user(token: str = Depends(oauth2)): #8
+    exception = HTTPException( #9
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Credenciales de autenticación inválidas",
         headers={"WWW-Authenticate": "Bearer"})
-
     try:
-        username = jwt.decode(token, SECRET, algorithms=[ALGORITHM]).get("sub")
-        if username is None:
+        username = jwt.decode(token, SECRET, algorithms=[ALGORITHM]).get("sub") #10
+        if username is None: #11
             raise exception
-
-    except JWTError:
+    except JWTError: #12 
         raise exception
+    return search_user(username) #13
 
-    return search_user(username)
-
-#9
+# Función para Obtener el Usuario Actual
 async def current_user(user: User = Depends(auth_user)):
-    if user.disabled:
+    if user.disabled: #14
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Usuario inactivo")
-
-    return user    
+    return user #15
     
-#7    
-#primero importamos el post de basic
+   
+# Metodo Post
 @router.post("/login")
-async def login(form: OAuth2PasswordRequestForm = Depends()): #Se reciben las credenciales del usuario a través del formulario OAuth2PasswordRequestForm, que incluye el nombre de usuario y la contraseña.
-
-    user_db = users_db.get(form.username) # Se busca el usuario en la base de datos simulada users_db. Si el usuario no existe, se lanza una excepción HTTP con un mensaje de error.
-    if not user_db:
+async def login(form: OAuth2PasswordRequestForm = Depends()): #16
+    user_db = users_db.get(form.username) #17 
+    if not user_db: #18 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="El usuario no es correcto")
-
-    user = search_user_db(form.username) #Se verifica que la contraseña proporcionada coincida con la contraseña encriptada almacenada. Si no coincide, se lanza una excepción HTTP con un mensaje de error.
-    #8
-    if not crypt.verify(form.password, user.password):
+    user = search_user_db(form.username) #19 
+    if not crypt.verify(form.password, user.password): #20 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña no es correcta")
-    
-    #9 duracion del token # Se crea un diccionario con los datos del token, incluyendo el nombre de usuario (sub) y la fecha de expiración (exp).
+    #21    
     access_token = {"sub": user.username,
                     "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_DURATION)}
-    #10 devuelve el SECRET -= # Se codifica el token usando jwt.encode con una clave secreta y el algoritmo especificado. Finalmente, se devuelve el token de acceso y el tipo de token (Bearer) al cliente.
-    return {"access_token": jwt.encode(access_token, SECRET, algorithm=ALGORITHM), "token_type": "bearer"}    
+    
+    return {"access_token": jwt.encode(access_token, SECRET, algorithm=ALGORITHM), "token_type": "bearer"} #22
 
 
-
+# Endpoint para Obtener Información del Usuario Actual
 @router.get("/users/me")
-async def me(user: User = Depends(current_user)):
-    return user
+async def me(user: User = Depends(current_user)): #23
+    return user #24
 
-# # python -m uvicorn jwt_auth_users:router --reload 
+"""
+#1 Importa funciones para codificar y decodificar JWTs.
+#2 Importa funciones para manejar el hashing de contraseñas.
+#3 Importa clases para manejar fechas y tiempos.
+#4 Configura el flujo de autenticación OAuth2 con la URL del token especificada como "login".
+#5 Configura el contexto de hashing de contraseñas con el esquema bcrypt.
+#6 Busca un usuario en users_db y devuelve un objeto UserDB si se encuentra.
+#7 Busca un usuario en users_db y devuelve un objeto User si se encuentra.
+#8 Define una función asíncrona que depende de oauth2 para obtener el token.
+#9 Define una excepción HTTP 401 (Unauthorized) para usar en caso de errores de autenticación.
+#10 Decodifica el token JWT y obtiene el nombre de usuario (sub).
+#11 Si el nombre de usuario no está en el token, lanza la excepción.
+#12 Captura cualquier error relacionado con JWT y lanza la excepción.
+#13 Devuelve el usuario encontrado.
+#14 Si el usuario está deshabilitado, lanza una excepción HTTP 400 (Bad Request).
+#15 Devuelve el usuario si no está deshabilitado.
+#16 Define una función asíncrona para manejar el inicio de sesión, utilizando OAuth2PasswordRequestForm para obtener los datos del formulario.
+#17 Busca el usuario en users_db.
+#18 Si el usuario no se encuentra, lanza una excepción HTTP 400 (Bad Request).
+#19 Busca el usuario en la base de datos.
+#20 Si la contraseña no coincide, lanza una excepción HTTP 400 (Bad Request).
+#21 Crea un diccionario con los datos del token, incluyendo el nombre de usuario (sub) y la fecha de expiración (exp).
+#22 Devuelve un token de acceso y el tipo de token (Bearer).
+#23 Define una función asíncrona para manejar la solicitud, dependiendo de current_user para obtener el usuario actual.
+#24 Devuelve la información del usuario actual.
+"""
+
+
+
+
+
