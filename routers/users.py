@@ -32,10 +32,10 @@ async def user(id: int):
 #Metodo Post
 @router.post("/user/", response_model=User, status_code=201) 
 async def user(user: User): #5 
-    users_list.append(user) #6 
     if type(search_user(user.id)) == User: #7 
         raise HTTPException(status_code=400, detail="El usuario ya existe") #8 
-    return user #9 
+    users_list.append(user) #6
+    return user
 
 #Metodo Put
 @router.put("/user/")   
