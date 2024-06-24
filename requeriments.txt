@@ -6,4 +6,4 @@ PyJWT
 passlib
 pymongo
 bson 
-docker
+
